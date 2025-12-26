@@ -38,9 +38,17 @@ if (!isset($_SESSION['user_id'])) {
       width: 100%;
       z-index: 999;
     }
+    .sitename {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #FFD700;
+      font-size: 1.2rem;
+    }
     .logo {
       height: 50px;
       width: 200px;
+      display: inline-block;
     }
     .navmenu ul {
       list-style: none;
@@ -66,26 +74,13 @@ if (!isset($_SESSION['user_id'])) {
       color: #002147;
       font-weight: 500;
     }
-    .password-wrapper {
-      position: relative;
-      margin-bottom: 15px;
-    }
-    .password-wrapper input {
+    input[type="password"] {
       width: 100%;
       padding: 12px;
-      padding-right: 40px;
+      margin-bottom: 20px;
       border: 2px solid #ccc;
       border-radius: 8px;
       font-size: 16px;
-    }
-    .toggle-password {
-      position: absolute;
-      top: 50%;
-      right: 10px;
-      transform: translateY(-50%);
-      cursor: pointer;
-      font-size: 18px;
-      color: #555;
     }
     input[type="submit"] {
       width: 100%;
@@ -116,34 +111,17 @@ if (!isset($_SESSION['user_id'])) {
       color: red;
       text-align: center;
       margin: 20px;
+
     }
+
+/* jg */
     .header-section.center {
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: #FFD700;
-      text-align: center;
-    }
-    #strengthMessage {
-      font-size: 14px;
-      margin-bottom: 10px;
-      font-weight: bold;
-    }
-    .weak { color: red; }
-    .medium { color: orange; }
-    .strong { color: green; }
-    .rules {
-      font-size: 13px;
-      margin-bottom: 15px;
-      list-style: none;
-      padding: 0;
-    }
-    .rules li {
-      margin: 3px 0;
-      color: red;
-    }
-    .rules li.valid {
-      color: green;
-    }
+  font-size: 1.6rem;
+  font-weight: 700; /* bold */
+  color: #FFD700;
+  text-align: center;
+}
+
   </style>
 </head>
 <body>
@@ -162,6 +140,7 @@ if (!isset($_SESSION['user_id'])) {
   </div>
 </header>
 
+
 <?php
 if ($_SERVER['REQUEST_METHOD'] != 'POST') {
     echo '
@@ -169,31 +148,13 @@ if ($_SERVER['REQUEST_METHOD'] != 'POST') {
       <h3 style="text-align:center;">Change Password</h3>
       <form method="post" action="">
         <label>Old Password</label>
-        <div class="password-wrapper">
-          <input type="password" name="userpass_old" placeholder="Enter Old Password" required autocomplete="off">
-          <span class="toggle-password" onclick="togglePassword(this)">👁️</span>
-        </div>
+        <input type="password" name="userpass_old" placeholder="Enter Old Password" required autocomplete="off">
 
         <label>New Password</label>
-        <div class="password-wrapper">
-          <input type="password" id="new_password" name="password" placeholder="Enter New Password" required autocomplete="off">
-          <span class="toggle-password" onclick="togglePassword(this)">👁️</span>
-        </div>
-        <div id="strengthMessage"></div>
-
-        <ul class="rules" id="passwordRules">
-          <li id="ruleLength">At least 8 characters</li>
-          <li id="ruleUpper">At least one uppercase letter</li>
-          <li id="ruleLower">At least one lowercase letter</li>
-          <li id="ruleNumber">At least one number</li>
-          <li id="ruleSpecial">At least one special character</li>
-        </ul>
+        <input type="password" name="password" placeholder="Enter New Password" required autocomplete="off">
 
         <label>Re-enter New Password</label>
-        <div class="password-wrapper">
-          <input type="password" name="confirm_password" placeholder="Re-enter New Password" required autocomplete="off">
-          <span class="toggle-password" onclick="togglePassword(this)">👁️</span>
-        </div>
+        <input type="password" name="confirm_password" placeholder="Re-enter New Password" required autocomplete="off">
 
         <input type="submit" name="submit" value="Submit">
       </form>
@@ -210,22 +171,11 @@ if ($_SERVER['REQUEST_METHOD'] != 'POST') {
         $errors[] = "New passwords do not match.";
     }
 
-    if (strlen($new_password) < 8) {
-        $errors[] = "Password must be at least 8 characters.";
-    }
-    if (!preg_match("/[A-Z]/", $new_password)) {
-        $errors[] = "Password must include at least one uppercase letter.";
-    }
-    if (!preg_match("/[a-z]/", $new_password)) {
-        $errors[] = "Password must include at least one lowercase letter.";
-    }
-    if (!preg_match("/[0-9]/", $new_password)) {
-        $errors[] = "Password must include at least one number.";
-    }
-    if (!preg_match("/[\W_]/", $new_password)) {
-        $errors[] = "Password must include at least one special character.";
+    if (strlen($new_password) < 6) {
+        $errors[] = "New password should be at least 6 characters.";
     }
 
+    // Get current password from DB
     $query = "SELECT password FROM users WHERE id = ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, 'i', $user_id);
@@ -273,54 +223,5 @@ if ($_SERVER['REQUEST_METHOD'] != 'POST') {
     }
 }
 ?>
-
-<script>
-function togglePassword(element) {
-  const input = element.previousElementSibling;
-  if (input.type === "password") {
-    input.type = "text";
-    element.textContent = "🙈";
-  } else {
-    input.type = "password";
-    element.textContent = "👁️";
-  }
-}
-
-// live strength + checklist validation
-document.getElementById("new_password")?.addEventListener("keyup", function() {
-    let pwd = this.value;
-    let msg = document.getElementById("strengthMessage");
-    let strength = 0;
-
-    // checklist elements
-    let ruleLength = document.getElementById("ruleLength");
-    let ruleUpper  = document.getElementById("ruleUpper");
-    let ruleLower  = document.getElementById("ruleLower");
-    let ruleNumber = document.getElementById("ruleNumber");
-    let ruleSpecial= document.getElementById("ruleSpecial");
-
-    // rules
-    if (pwd.length >= 8) { strength++; ruleLength.classList.add("valid"); } else { ruleLength.classList.remove("valid"); }
-    if (/[A-Z]/.test(pwd)) { strength++; ruleUpper.classList.add("valid"); } else { ruleUpper.classList.remove("valid"); }
-    if (/[a-z]/.test(pwd)) { strength++; ruleLower.classList.add("valid"); } else { ruleLower.classList.remove("valid"); }
-    if (/[0-9]/.test(pwd)) { strength++; ruleNumber.classList.add("valid"); } else { ruleNumber.classList.remove("valid"); }
-    if (/[\W_]/.test(pwd)) { strength++; ruleSpecial.classList.add("valid"); } else { ruleSpecial.classList.remove("valid"); }
-
-    // strength message
-    if (strength <= 2) {
-        msg.textContent = "Weak password ❌";
-        msg.className = "weak";
-    } else if (strength === 3 || strength === 4) {
-        msg.textContent = "Medium strength ⚠️";
-        msg.className = "medium";
-    } else if (strength === 5) {
-        msg.textContent = "Strong password ✅";
-        msg.className = "strong";
-    } else {
-        msg.textContent = "";
-    }
-});
-</script>
-
 </body>
 </html>

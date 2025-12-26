@@ -2,41 +2,27 @@
 session_start();
 include 'connect.php';
 
-// Generate captcha on first load
-if (empty($_SESSION['captcha'])) {
-    $_SESSION['captcha'] = rand(1000, 9999);
-}
-
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $staff_number = $_POST['staff_number'];
     $password = $_POST['password'];
-    $captcha_input = $_POST['captcha'];
 
-    // Captcha validation
-    if ($captcha_input != $_SESSION['captcha']) {
-        $error = "Invalid captcha.";
+    $stmt = $conn->prepare("SELECT * FROM users WHERE staff_number = ?");
+    $stmt->bind_param("s", $staff_number);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+
+    if (!$user) {
+        $error = "Staff number does not exist.";
+    } elseif (!password_verify($password, $user['password'])) {
+        $error = "Incorrect password.";
     } else {
-        $stmt = $conn->prepare("SELECT * FROM users WHERE staff_number = ?");
-        $stmt->bind_param("s", $staff_number);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-
-        if (!$user) {
-            $error = "Staff number does not exist.";
-        } elseif (!password_verify($password, $user['password'])) {
-            $error = "Incorrect password.";
-        } else {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
-            header("Location: project_review.php");
-            exit;
-        }
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['role'] = $user['role'];
+        header("Location: project_review.php");
+        exit;
     }
-
-    // Reset captcha after submission
-    $_SESSION['captcha'] = rand(1000, 9999);
 }
 ?>
 <!DOCTYPE html>
@@ -48,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   <title>Customer Support Portal</title>
   <link href="assets/css/main.css" rel="stylesheet">
   <style>
-    body {
+   body {
       margin: 0;
       padding: 0;
       background: linear-gradient(to right, #002147, #004080);
@@ -122,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       color: #333;
     }
 
-    input[type="integer"], input[type="password"], input[type="text"] {
+    input[type="integer"], input[type="password"] {
       width: 93%;
       padding: 12px 15px;
       margin-bottom: 20px;
@@ -132,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       transition: 0.3s ease;
     }
 
-    input:focus {
+    input[type="text"]:focus, input[type="password"]:focus {
       border-color: #004080;
       outline: none;
     }
@@ -154,36 +140,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       background: #e67300;
     }
 
-    .captcha-box {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .captcha-code {
-      background: #002147;
-      color: white;
-      font-weight: bold;
-      padding: 8px 15px;
-      border-radius: 5px;
-      font-size: 18px;
-      letter-spacing: 3px;
-    }
-
-    .refresh-btn {
-      background: #004080;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    .refresh-btn:hover {
-      background: #0066cc;
-    }
-
     .forgot {
       text-align: center;
       margin-top: 10px;
@@ -195,6 +151,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     .forgot a:hover {
+      text-decoration: underline;
+    }
+
+    .signup-link {
+      text-align: center;
+      margin-top: 20px;
+      color:rgb(219, 125, 10);
+    }
+
+    .signup-link a {
+      color: #004080;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .signup-link a:hover {
       text-decoration: underline;
     }
 
@@ -230,6 +202,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       border: none;
       border-radius: 5px;
     }
+
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 1000;
+    }
   </style>
 </head>
 
@@ -251,6 +230,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   </nav>
 </header>
 
+
+
 <div class="login-container">
   <h2>User Login</h2>
 
@@ -258,19 +239,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="error-msg"><?php echo $error; ?></div>
   <?php endif; ?>
 
-  <form method="post" onsubmit="return validateForm()">
+  <form method="post">
     <label>STAFF NUMBER</label>
-    <input type="integer" id="staff_number" name="staff_number" placeholder="Enter staff number" maxlength="6" required autocomplete="off">
+    <input type="integer" name="staff_number" placeholder="Enter staff number" maxlength="6" required="6" required autocomplete="off">
 
     <label>PASSWORD</label>
-    <input type="password" id="password" name="password" placeholder="Enter password" required autocomplete="off">
-
-    <label>CAPTCHA</label>
-    <div class="captcha-box">
-      <div class="captcha-code" id="captcha-display"><?php echo $_SESSION['captcha']; ?></div>
-      <button type="button" class="refresh-btn" onclick="refreshCaptcha()">↻</button>
-    </div>
-    <input type="text" id="captcha" name="captcha" placeholder="Enter captcha" disabled required autocomplete="off">
+    <input type="password" name="password" placeholder="Enter password" required autocomplete="off">
 
     <input type="submit" value="LOGIN" id="g" name="submit">
   </form>
@@ -278,14 +252,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   <div class="forgot">
     <a href="javascript:void(0);" onclick="showForgotPasswordModal()">Forgot Password?</a>
   </div>
+
+ 
 </div>
 
-<!-- <div id="forgotPasswordModal">
+<div id="forgotPasswordModal">
   <div class="modal-content">
     <h4 style="color:black;">Please send mail to <b style="color:orange">cotp@bel.co.in</b> to reset password with user <b style="color:orange">Staff Number</b></h4>
     <button onclick="closeForgotPasswordModal()">Close</button>
   </div>
-</div> -->
+</div>
 
 <script>
 function showForgotPasswordModal() {
@@ -293,52 +269,6 @@ function showForgotPasswordModal() {
 }
 function closeForgotPasswordModal() {
   document.getElementById('forgotPasswordModal').style.display = 'none';
-}
-
-// Enable captcha only if staff number & password are filled
-document.getElementById("staff_number").addEventListener("input", checkInputs);
-document.getElementById("password").addEventListener("input", checkInputs);
-
-function checkInputs() {
-  let staff = document.getElementById("staff_number").value.trim();
-  let pass = document.getElementById("password").value.trim();
-  let captchaInput = document.getElementById("captcha");
-
-  if (staff && pass) {
-    captchaInput.disabled = false;
-  } else {
-    captchaInput.disabled = true;
-    captchaInput.value = "";
-  }
-}
-
-function validateForm() {
-  let staff = document.getElementById("staff_number").value.trim();
-  let pass = document.getElementById("password").value.trim();
-  let captcha = document.getElementById("captcha").value.trim();
-
-  if (!staff) {
-    alert("Kindly, fill out this field (Staff Number).");
-    return false;
-  }
-  if (!pass) {
-    alert("Kindly, fill out this field (Password).");
-    return false;
-  }
-  if (!captcha) {
-    alert("Kindly, fill out this field (Captcha).");
-    return false;
-  }
-  return true;
-}
-
-// Refresh captcha without reloading
-function refreshCaptcha() {
-  fetch("captcha_refresh.php")
-    .then(response => response.text())
-    .then(data => {
-      document.getElementById("captcha-display").innerText = data;
-    });
 }
 </script>
 
